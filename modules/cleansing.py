@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 def remove_outliers(df: pd.DataFrame, column) -> pd.DataFrame:
     q1 = df[column].quantile(0.25)
@@ -11,12 +12,24 @@ def remove_outliers(df: pd.DataFrame, column) -> pd.DataFrame:
 
 def remove_invalid_values(df: pd.DataFrame) -> pd.DataFrame:
     for column in df.columns:
-        df[column] = df[column].replace({'?': 'NaN'}, {'9999-99-99' : 'NaN'})
+        df[column] = df[column].replace({'9999-99-99' : 'NaN'})
+        df[column] = df[column].replace({'?': 'NaN'})
     return df
 
 def transform_data_type_bool(df):
     return df
 
-def mapping_bool_values(df: pd.DataFrame, columns: list) -> pd.DataFrame:   
+def mapping_bool_values(df: pd.DataFrame, excluded_columns: list) -> pd.DataFrame:   
+    for column in df.columns:
+        if column not in excluded_columns:
+            df[column] = df[column].astype(np.float64).astype(str)
+            if column == 'SEX':
+                df[column] = df[column].replace({'1.0': 'Female', '2.0': 'Male'})
+            else:
+                df[column] = df[column].replace({'1.0': 'True', '2.0': 'False'})
     
+    df.loc[df.SEX == 'Male', 'PREGNANT'] = 'False'
     return df
+
+def remove_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    return df.drop(columns, axis=1)
