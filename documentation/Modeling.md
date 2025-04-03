@@ -8,11 +8,14 @@
 
 &rarr;The dataset is imbalance (The ICU admission cases are outnumbered by the ICU non-admission ones)
 
-&rarr;The following methods might be applied when generating training set and test set:
+### 2. Application
+The following methods might be applied when generating training set and test set:
 - Stratification will be applied make sure each subset (e.g., train/test split) reflects the overall distribution of the original data.
 - Approach 1: Oversampling with SMOTE
     - Oversampling with SMOTE will be applied for the training dataset to ensures maximum data utilisation for the upcoming model.
-- Approach 2: Undersampling with Tokmek's link due to these reasons:
+- Approach 2: Undersampling with NearMiss due to these reasons:
     - Dataset has been cleansed previously, therefore methods that handle noise like Cluster Centroids and Edited Nearest Neighbors are not needed.
-    - The author wants to limit the amount of data loss as much as possible, therefore methods that leads to large amount of data loss like Random Undersampling and Cluster Centroids, or moderate amount of data loss like NearMiss will not be considered.
-    - Tokmek's link has a good class separability 
+    - The author wants to limit the amount of data loss as much as possible, therefore methods that leads to large amount of data loss like Random Undersampling and Cluster Centroids
+    - NearMiss has a good class separability 
+
+## II/ 
