@@ -142,7 +142,7 @@ def feature_selection_rfe(df: pd.DataFrame, target_column: str, select_k_best: i
     y = df[target_column]
     X = df.drop(target_column, axis=1)
     
-    model = DecisionTreeClassifier(max_depth=10, random_state=42)
+    model = DecisionTreeClassifier(max_depth=7, random_state=42)
     # RFE using sklearn
     rfe = RFE(estimator=model, n_features_to_select=select_k_best)  # Select 2 features
 

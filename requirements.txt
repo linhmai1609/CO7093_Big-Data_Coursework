@@ -9,3 +9,4 @@ scikit_learn==1.6.1
 seaborn==0.13.2
 imbalanced-learn==0.13.0
 pyspark==3.5.4
+statsmodels==0.14.4
