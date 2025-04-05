@@ -6,6 +6,11 @@ from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif, f_
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+import statsmodels.api as sm
+from sklearn.model_selection import train_test_split, cross_val_score, cross_validate
+from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, roc_auc_score
 
 def generate_train_test_over_set(df: pd.DataFrame, target_column: str, test_size: float) -> tuple:
     y = df[target_column]
@@ -161,3 +166,48 @@ def feature_selection_rfe(df: pd.DataFrame, target_column: str, select_k_best: i
     print("Accuracy with selected features:", score)
 
     return selected_features
+
+def logistic_regression(training_set: dict , test_set: dict, solver: str, class_weight) -> None:
+    # Initialize and fit model
+    model = LogisticRegression(solver=solver, class_weight=class_weight, random_state=42)  # Increase max_iter if convergence issues
+    model.fit(training_set['X'], training_set['Y'])
+
+    # Predictions
+    y_pred = model.predict(test_set['X'])
+    y_prob = model.predict_proba(test_set['X'])[:, 1]  # Probabilities for ROC AUC
+
+    # Evaluate
+    print("Accuracy:", accuracy_score(test_set['Y'], y_pred))
+    print("Classification Report:\n", classification_report(test_set['Y'], y_pred))
+
+    # Coefficients
+    coef_df = pd.DataFrame({'Variable': training_set['X'].columns, 'Coefficient': model.coef_[0]})
+    print("Coefficients:\n", coef_df)
+
+    # Cross-validation (using 5-fold by default)
+    cv_scores = cross_val_score(model, training_set['X'], training_set['Y'], cv=5, scoring='accuracy')
+    print("\nCross-Validation Accuracy Scores:", cv_scores)
+    print("Mean CV Accuracy Score:", cv_scores.mean())
+    print("Standard Deviation of CV Scores:", cv_scores.std())
+
+    # Detailed cross-validation metrics
+    scoring = ['precision', 'recall', 'f1', 'roc_auc']  # Metrics for class 1 (ICU admitted)
+    cv_results = cross_validate(model, training_set['X'], training_set['Y'], cv=5, scoring=scoring)
+
+    # Print mean and std for each metric
+    print("\nCross-Validation Detailed Metrics (for class 1: ICU admitted):")
+    print("Mean Precision:", cv_results['test_precision'].mean())
+    print("Precision Std:", cv_results['test_precision'].std())
+    print("Mean Recall:", cv_results['test_recall'].mean())
+    print("Recall Std:", cv_results['test_recall'].std())
+    print("Mean F1-Score:", cv_results['test_f1'].mean())
+    print("F1-Score Std:", cv_results['test_f1'].std())
+    print("Mean ROC AUC:", cv_results['test_roc_auc'].mean())
+    print("ROC AUC Std:", cv_results['test_roc_auc'].std())
+
+    # Overall test set metrics for class 1
+    print("\nOverall Test Set Metrics (for class 1: ICU admitted):")
+    print("Precision:", precision_score(test_set['Y'], y_pred))
+    print("Recall:", recall_score(test_set['Y'], y_pred))
+    print("F1-Score:", f1_score(test_set['Y'], y_pred))
+    print("ROC AUC Score:", roc_auc_score(test_set['Y'], y_prob))
