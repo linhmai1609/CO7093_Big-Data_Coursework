@@ -7,10 +7,14 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, classification_report, roc_curve
 import statsmodels.api as sm
 from sklearn.model_selection import train_test_split, cross_val_score, cross_validate
-from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, roc_auc_score 
+from matplotlib import pyplot as plt
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import seaborn as sns
+import numpy as np 
 
 def generate_train_test_over_set(df: pd.DataFrame, target_column: str, test_size: float) -> tuple:
     y = df[target_column]
@@ -55,8 +59,8 @@ def generate_train_test_under_set(df: pd.DataFrame, target_column: str, test_siz
     # Applying NearMiss to the training data
     nm = NearMiss(version=1)  # Can use version=1, 2, or 3
     X_train, y_train = nm.fit_resample(X_train, y_train)
-    print(f'X_train shape after applying Tomek Links: {X_train.shape}')
-    print(f'y_train shape after applying Tomek Links: {y_train.shape}')
+    print(f'X_train shape after applying NearMiss {X_train.shape}')
+    print(f'y_train shape after applying NearMiss: {y_train.shape}')
 
     return X_train, X_test, y_train, y_test
 
@@ -91,20 +95,6 @@ def feature_selection_mutual_info(df: pd.DataFrame, target_column: str, select_k
     selected_features = X.columns[mi_selector.get_support()].tolist()
     print("Selected features:", selected_features)
     return selected_features
-
-def feature_selection_coefficient(df: pd.DataFrame, target_column: str, select_k_best: int) -> None:
-    y = df[target_column]
-    X = df.drop(target_column, axis=1)
-
-    # Calculate correlation with each feature
-    correlations = X.corrwith(pd.Series(y))
-    print("Correlations with target:")
-    print(correlations.sort_values(ascending=False))
-
-    # Select top k features (e.g., top 2)
-    top_features = correlations.abs().sort_values(ascending=False).head(select_k_best).index
-    print(f"Top {select_k_best} features:", top_features.tolist())
-    return top_features.tolist()
 
 def feature_selection_anova(df: pd.DataFrame, target_column: str, select_k_best: int) -> None:
     y = df[target_column]
@@ -211,3 +201,75 @@ def logistic_regression(training_set: dict , test_set: dict, solver: str, class_
     print("Recall:", recall_score(test_set['Y'], y_pred))
     print("F1-Score:", f1_score(test_set['Y'], y_pred))
     print("ROC AUC Score:", roc_auc_score(test_set['Y'], y_prob))
+
+def logistic_regression_model(training_set: dict , test_set: dict, solver: str, class_weight):
+    model = LogisticRegression(solver=solver, class_weight=class_weight, max_iter=2000, random_state=42)
+
+    model.fit(training_set['X'], training_set['Y'])
+
+    yPredictTrain = model.predict(training_set['X'])
+    yPredictTest = model.predict(test_set['X'])
+
+    trainAccuracyScore = accuracy_score(training_set['Y'], yPredictTrain)
+    testAccuracyScore = accuracy_score(test_set['Y'], yPredictTest)
+
+    confusionMatrix = confusion_matrix(test_set['Y'], yPredictTest)
+    report = classification_report(test_set['Y'], yPredictTest)
+
+    crossValidationScores = cross_val_score(model, training_set['X'], training_set['Y'], cv=5, scoring='accuracy')
+    averageCrossValidationScore = crossValidationScores.mean()
+
+    y_predict_prob = model.predict_proba(test_set['X'])[:, 1]
+    roc_auc = roc_auc_score(test_set['Y'], y_predict_prob)
+
+    fpr, sensitivity, _ = roc_curve(test_set['Y'], y_predict_prob, pos_label=1)
+    auc = roc_auc_score(test_set['Y'], y_predict_prob)
+
+
+    print(f"\nModel: Logistic Regression")
+    print(f"Training Accuracy: {trainAccuracyScore}")
+    print(f"Test Accuracy: {testAccuracyScore}")
+
+    # Cross-validation (using 5-fold by default)
+    print("\nCross-Validation Accuracy Scores:", crossValidationScores)
+    print("Mean CV Accuracy Score:", averageCrossValidationScore)
+    print("Standard Deviation of CV Scores:", crossValidationScores.std())
+
+    print(f"ROC AUC Score: {roc_auc}")    
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, sensitivity, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+    plt.plot([0, 1], [0, 1], linestyle='--', color="grey")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate (Sensitivity)")
+    plt.title("ROC Curve for Logistic Regression")
+    plt.legend(loc="lower right")
+    plt.show()
+
+    # Confusion Matrix
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(confusionMatrix, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
+
+    print(f"\nClassification Report:\n{report}")
+
+    # Overall test set metrics for class 1
+    print("\nOverall Test Set Metrics (for class 1: ICU admitted):")
+    print("Precision:", precision_score(test_set['Y'], yPredictTest))
+    print("Recall:", recall_score(test_set['Y'], yPredictTest))
+    print("F1-Score:", f1_score(test_set['Y'], yPredictTest))
+    print("ROC AUC Score:", roc_auc_score(test_set['Y'], y_predict_prob))
+
+    return model
+
+def cleanDataForModeling(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = df.select_dtypes(include=[np.number])
+
+    scaler = MinMaxScaler()
+    numerical_cols = df.select_dtypes(include=[np.number]).columns
+    df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+
+    return df
