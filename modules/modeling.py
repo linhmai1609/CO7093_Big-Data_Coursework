@@ -1,5 +1,5 @@
 from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import TomekLinks, NearMiss
+from imblearn.under_sampling import NearMiss
 import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif, f_classif, VarianceThreshold
 from sklearn.tree import DecisionTreeClassifier
@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import statsmodels.api as sm
 from sklearn.model_selection import train_test_split, cross_val_score, cross_validate, learning_curve
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import seaborn as sns
 import numpy as np 
 from sklearn.ensemble import RandomForestClassifier

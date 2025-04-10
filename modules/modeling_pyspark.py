@@ -18,80 +18,82 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Row
 from pyspark.sql.functions import mean, col
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
-import modeling as md
+import modules.modeling as md
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import NearMiss
 
-def logistic_regression_model(training_set: dict , test_set: dict, solver: str, class_weight):
-    model = LogisticRegression(solver=solver, class_weight=class_weight, max_iter=2000, random_state=42)
+# def logistic_regression_model(training_set: dict , test_set: dict, solver: str, class_weight):
+#     model = LogisticRegression(solver=solver, class_weight=class_weight, max_iter=2000, random_state=42)
 
-    model.fit(training_set['X'], training_set['Y'])
+#     model.fit(training_set['X'], training_set['Y'])
 
-    yPredictTrain = model.predict(training_set['X'])
-    yPredictTest = model.predict(test_set['X'])
+#     yPredictTrain = model.predict(training_set['X'])
+#     yPredictTest = model.predict(test_set['X'])
 
-    trainAccuracyScore = accuracy_score(training_set['Y'], yPredictTrain)
-    testAccuracyScore = accuracy_score(test_set['Y'], yPredictTest)
+#     trainAccuracyScore = accuracy_score(training_set['Y'], yPredictTrain)
+#     testAccuracyScore = accuracy_score(test_set['Y'], yPredictTest)
 
-    confusionMatrix = confusion_matrix(test_set['Y'], yPredictTest)
-    report = classification_report(test_set['Y'], yPredictTest)
+#     confusionMatrix = confusion_matrix(test_set['Y'], yPredictTest)
+#     report = classification_report(test_set['Y'], yPredictTest)
 
-    crossValidationScores = cross_val_score(model, training_set['X'], training_set['Y'], cv=5, scoring='accuracy')
-    averageCrossValidationScore = crossValidationScores.mean()
+#     crossValidationScores = cross_val_score(model, training_set['X'], training_set['Y'], cv=5, scoring='accuracy')
+#     averageCrossValidationScore = crossValidationScores.mean()
 
-    y_predict_prob = model.predict_proba(test_set['X'])[:, 1]
-    roc_auc = roc_auc_score(test_set['Y'], y_predict_prob)
+#     y_predict_prob = model.predict_proba(test_set['X'])[:, 1]
+#     roc_auc = roc_auc_score(test_set['Y'], y_predict_prob)
 
-    fpr, sensitivity, _ = roc_curve(test_set['Y'], y_predict_prob, pos_label=1)
-    auc = roc_auc_score(test_set['Y'], y_predict_prob)
+#     fpr, sensitivity, _ = roc_curve(test_set['Y'], y_predict_prob, pos_label=1)
+#     auc = roc_auc_score(test_set['Y'], y_predict_prob)
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, sensitivity, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
-    plt.plot([0, 1], [0, 1], linestyle='--', color="grey")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate (Sensitivity)")
-    plt.title("ROC Curve for Logistic Regression")
-    plt.legend(loc="lower right")
-    plt.show()
+#     plt.figure(figsize=(8, 6))
+#     plt.plot(fpr, sensitivity, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+#     plt.plot([0, 1], [0, 1], linestyle='--', color="grey")
+#     plt.xlabel("False Positive Rate")
+#     plt.ylabel("True Positive Rate (Sensitivity)")
+#     plt.title("ROC Curve for Logistic Regression")
+#     plt.legend(loc="lower right")
+#     plt.show()
 
-    print(f"\nModel: Logistic Regression")
-    print(f"Training Accuracy: {trainAccuracyScore}")
-    print(f"Test Accuracy: {testAccuracyScore}")
-    print(f"Cross-Validation Accuracy: {averageCrossValidationScore}")
-    print(f"ROC AUC Score: {roc_auc}")
-    print(f"\nConfusion Matrix:\n{confusionMatrix}")
-    print(f"\nClassification Report:\n{report}")
+#     print(f"\nModel: Logistic Regression")
+#     print(f"Training Accuracy: {trainAccuracyScore}")
+#     print(f"Test Accuracy: {testAccuracyScore}")
+#     print(f"Cross-Validation Accuracy: {averageCrossValidationScore}")
+#     print(f"ROC AUC Score: {roc_auc}")
+#     print(f"\nConfusion Matrix:\n{confusionMatrix}")
+#     print(f"\nClassification Report:\n{report}")
 
-    return model
+#     return model
 
 
-DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'Dataset_revised_new.csv')
-df = pd.read_csv(DATA_PATH)
+# DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'Dataset_revised_new.csv')
+# df = pd.read_csv(DATA_PATH)
 
-# One clean before running to ensure only numeric values
-df = md.cleanDataForModeling(df)
+# # One clean before running to ensure only numeric values
+# df = md.cleanDataForModeling(df)
 
-#all feature selection
-#selectedFeatures = feature_selection_mutual_info(df, target_column='ICU', select_k_best=10)
-# selectedFeatures = feature_selection_coefficient(df, target_column='ICU', select_k_best=10)
-#selectedFeatures = feature_selection_anova(df, target_column='ICU', select_k_best=10)
-#selectedFeatures = feature_selection_chi2(df, target_column='ICU', continuous_columns=['AGE'], select_k_best=10)
-selectedFeatures = md.feature_selection_rfe(df, target_column='ICU', select_k_best=10)
+# #all feature selection
+# #selectedFeatures = feature_selection_mutual_info(df, target_column='ICU', select_k_best=10)
+# # selectedFeatures = feature_selection_coefficient(df, target_column='ICU', select_k_best=10)
+# #selectedFeatures = feature_selection_anova(df, target_column='ICU', select_k_best=10)
+# #selectedFeatures = feature_selection_chi2(df, target_column='ICU', continuous_columns=['AGE'], select_k_best=10)
+# selectedFeatures = md.feature_selection_rfe(df, target_column='ICU', select_k_best=10)
 
-df_filtered = df[selectedFeatures + ['ICU']]
+# df_filtered = df[selectedFeatures + ['ICU']]
 
-X_train, X_test, y_train, y_test = md.generate_train_test_over_set(df_filtered, 'ICU', test_size=0.2)
+# X_train, X_test, y_train, y_test = md.generate_train_test_over_set(df_filtered, 'ICU', test_size=0.2)
 
-trainedModel = logistic_regression_model(training_set={'X': X_train, 'Y': y_train} , test_set={'X': X_test, 'Y': y_test}, solver='liblinear', class_weight={0:1, 1:5})
+# trainedModel = logistic_regression_model(training_set={'X': X_train, 'Y': y_train} , test_set={'X': X_test, 'Y': y_test}, solver='liblinear', class_weight={0:1, 1:5})
 
 print("")
 print("Moving to improved Model:")
 print("")
 
-def trainAndTestImprovedModel():
+def trainAndTestImprovedModel(DATA_PATH: str):
     spark = SparkSession.builder.appName("Improved_Model").getOrCreate()
 
     spark.conf.set("spark.sql.debug.maxToStringFields", 1000)
@@ -101,13 +103,15 @@ def trainAndTestImprovedModel():
     df.summary().show()
 
     # Drop non-numeric columns
-    df = df.drop("DATE_DIED")
+    if "DATE_DIED" in df.columns:
+        df = df.drop("DATE_DIED")
 
     # filling missing values with mean
-    for column, dtype in df.dtypes:
-        if dtype in ["int", "double"]:
-            mean_value = df.select(mean(col(column))).collect()[0][0]
-            df = df.na.fill(mean_value, subset=[column])
+    if DATA_PATH != 'data/Dataset_revised_pyspark.csv':
+        for column, dtype in df.dtypes:
+            if dtype in ["int", "double"]:
+                mean_value = df.select(mean(col(column))).collect()[0][0]
+                df = df.na.fill(mean_value, subset=[column])
 
     feature_columns = [col for col in df.columns if col != 'ICU']
 
@@ -135,7 +139,16 @@ def trainAndTestImprovedModel():
     print(f"Training Accuracy: {trainAccuracy}")
     print(f"Test Accuracy: {testAccuracy}")
     print(f"ROC AUC Score: {roc_auc}")
-    print("Confusion Matrix:\n", confusion_matrix(y_true, y_pred))
+    # print("Confusion Matrix:\n", confusion_matrix(y_true, y_pred))
+    
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
+
     print("\nClassification Report:\n", classification_report(y_true, y_pred))
 
     predictions_pd = predictions.select("probability", "ICU").toPandas()
@@ -155,7 +168,7 @@ def trainAndTestImprovedModel():
 
     spark.stop()
 
-trainAndTestImprovedModel()
+# trainAndTestImprovedModel()
 
 print("")
 print("Moving to K-Means clustering Model:")
@@ -263,4 +276,4 @@ def trainAndTestKmeansClassifiers():
     return results
 
 
-trainAndTestKmeansClassifiers()
+# trainAndTestKmeansClassifiers()
