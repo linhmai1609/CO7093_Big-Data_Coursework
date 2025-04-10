@@ -215,19 +215,21 @@ print("Moving to K-Means clustering Model:")
 print("")
 
 
-def trainAndTestKmeansClassifiers():
+def trainAndTestKmeansClassifiers(DATA_PATH: str, sampling: str):
     spark = SparkSession.builder.appName("KMeans").getOrCreate()
     spark.conf.set("spark.sql.debug.maxToStringFields", 1000)
 
     df = spark.read.csv(DATA_PATH, header=True, inferSchema=True)
 
-    df = df.drop("DATE_DIED")
+    if "DATE_DIED" in df.columns:
+        df = df.drop("DATE_DIED")
 
     # Fill missing values with the mean of each column
-    for column, dtype in df.dtypes:
-        if dtype in ["int", "double"]:
-            mean_value = df.select(mean(column)).collect()[0][0]
-            df = df.na.fill(mean_value, subset=[column])
+    if DATA_PATH != 'data/Dataset_revised_pyspark.csv':
+        for column, dtype in df.dtypes:
+            if dtype in ["int", "double"]:
+                mean_value = df.select(mean(column)).collect()[0][0]
+                df = df.na.fill(mean_value, subset=[column])
 
     feature_columns = [col for col in df.columns if col != 'ICU']
     assembler = VectorAssembler(inputCols=feature_columns, outputCol='features')
@@ -285,7 +287,14 @@ def trainAndTestKmeansClassifiers():
         clusterFeatures = clusterData.drop(columns=['ICU', 'Cluster'])
         clusterTarget = clusterData['ICU']
 
-        X_train, X_test, y_train, y_test = train_test_split(clusterFeatures, clusterTarget, test_size=0.2,
+        if sampling == "oversampling":
+            clusterFeatures = clusterData.drop(columns=['Cluster'])
+            X_train, X_test, y_train, y_test = md.generate_train_test_over_set(df=clusterData, target_column='ICU', test_size=0.2)
+        if sampling == "undersampling":
+            clusterFeatures = clusterData.drop(columns=['Cluster'])
+            X_train, X_test, y_train, y_test = md.generate_train_test_under_set(df=clusterData, target_column='ICU', test_size=0.2)
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(clusterFeatures, clusterTarget, test_size=0.2,
                                                             random_state=42)
 
         model = SklearnLogisticRegression(max_iter=1000, random_state=42)
