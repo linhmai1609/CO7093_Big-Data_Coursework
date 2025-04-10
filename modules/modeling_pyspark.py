@@ -93,7 +93,7 @@ print("")
 print("Moving to improved Model:")
 print("")
 
-def trainAndTestImprovedModel(DATA_PATH: str):
+def trainAndTestImprovedModel(DATA_PATH: str, sampling: str):
     spark = SparkSession.builder.appName("Improved_Model").getOrCreate()
 
     spark.conf.set("spark.sql.debug.maxToStringFields", 1000)
@@ -119,6 +119,46 @@ def trainAndTestImprovedModel(DATA_PATH: str):
     data_df  = vectorAssembler.transform(df).select('features', 'ICU')
 
     train_data, test_data = data_df.randomSplit([0.8, 0.2], seed=42)
+
+    # Check class distribution
+    class_distribution = train_data.groupBy("ICU").count()
+    class_distribution.show()
+
+    # Identify majority and minority classes
+    majority_class = class_distribution.orderBy(col("count").desc()).first()["ICU"]
+    minority_class = class_distribution.orderBy(col("count").asc()).first()["ICU"]
+
+    # Filter majority and minority class data
+    majority_df = train_data.filter(col("ICU") == majority_class)
+    minority_df = train_data.filter(col("ICU") == minority_class)
+
+    # Calculate oversampling ratio
+    majority_count = majority_df.count()
+    minority_count = minority_df.count()
+
+    if sampling == "oversampling":
+        oversampling_ratio = majority_count / minority_count
+
+        # Oversample minority class
+        oversampled_minority_df = minority_df.sample(withReplacement=True, fraction=oversampling_ratio, seed=42)
+
+        # Combine oversampled minority class with majority class
+        train_data = majority_df.union(oversampled_minority_df)
+
+        # Verify new class distribution
+        train_data.groupBy("ICU").count().show()
+    if sampling == "undersampling":
+        undersampling_ratio = minority_count / majority_count
+
+        # Undersample majority class
+        undersampled_majority_df = majority_df.sample(withReplacement=False, fraction=undersampling_ratio, seed=42)
+
+        # Combine undersampled majority class with minority class
+        train_data = undersampled_majority_df.union(minority_df)
+
+        # Verify new class distribution
+        train_data.groupBy("ICU").count().show()
+    
 
     lr = LogisticRegression(featuresCol='features', labelCol='ICU', maxIter=100)
     lrModel = lr.fit(train_data)
