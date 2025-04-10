@@ -1,20 +1,19 @@
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import TomekLinks, NearMiss
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif, f_classif, VarianceThreshold
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, classification_report, roc_curve
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, precision_score, recall_score, f1_score, roc_auc_score, roc_curve
 import statsmodels.api as sm
-from sklearn.model_selection import train_test_split, cross_val_score, cross_validate
-from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score, roc_auc_score 
+from sklearn.model_selection import train_test_split, cross_val_score, cross_validate, learning_curve
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import seaborn as sns
 import numpy as np 
+from sklearn.ensemble import RandomForestClassifier
 
 def generate_train_test_over_set(df: pd.DataFrame, target_column: str, test_size: float) -> tuple:
     y = df[target_column]
@@ -202,6 +201,17 @@ def logistic_regression(training_set: dict , test_set: dict, solver: str, class_
     print("F1-Score:", f1_score(test_set['Y'], y_pred))
     print("ROC AUC Score:", roc_auc_score(test_set['Y'], y_prob))
 
+def cleanDataForModeling(df: pd.DataFrame) -> pd.DataFrame:
+
+    df = df.select_dtypes(include=[np.number])
+
+    scaler = MinMaxScaler()
+    numerical_cols = df.select_dtypes(include=[np.number]).columns
+    df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+
+    return df
+
+
 def logistic_regression_model(training_set: dict , test_set: dict, solver: str, class_weight):
     model = LogisticRegression(solver=solver, class_weight=class_weight, max_iter=2000, random_state=42)
 
@@ -264,12 +274,69 @@ def logistic_regression_model(training_set: dict , test_set: dict, solver: str, 
 
     return model
 
-def cleanDataForModeling(df: pd.DataFrame) -> pd.DataFrame:
+def random_forest_model(training_set: dict , test_set: dict, n_estimators: int, min_samples_split: int):
+    # Create and train the Random Forest model
+    rf_classifier = RandomForestClassifier(n_estimators=n_estimators  # number of trees
+                                        , min_samples_split= min_samples_split,
+                                        #   max_depth=10,      # maximum depth of trees
+                                        random_state=42)   # for reproducibility
 
-    df = df.select_dtypes(include=[np.number])
+    # Fit the model
+    rf_classifier.fit(training_set['X'], training_set['Y'])
 
-    scaler = MinMaxScaler()
-    numerical_cols = df.select_dtypes(include=[np.number]).columns
-    df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+    # Make predictions
+    y_pred = rf_classifier.predict(test_set['X'])
 
-    return df
+    # Calculate accuracy
+    accuracy = accuracy_score(test_set['Y'], y_pred)
+    print(f"Accuracy: {accuracy:.2f}")
+
+    print("Classification Report:")
+    print(classification_report(test_set['Y'], y_pred))
+
+    # Check for overfitting
+    train_pred = rf_classifier.predict(training_set['X'])
+    print(f"Training accuracy: {accuracy_score(training_set['Y'], train_pred):.4f}")
+    print(f"Test accuracy: {accuracy_score(test_set['Y'], y_pred):.4f}")
+
+    # Calculate accuracy
+    accuracy = accuracy_score(test_set['Y'], y_pred)
+    print(f"Accuracy: {accuracy:.2f}")
+
+    # Feature importance
+    feature_importance = rf_classifier.feature_importances_
+    print("\nFeature Importance:")
+    for i, importance in enumerate(feature_importance):
+        print(f"Feature {i+1}: {importance:.4f}")
+
+    # Plot feature importances
+    import matplotlib.pyplot as plt
+    plt.bar(training_set['X'].columns, feature_importance)
+    plt.xticks(rotation=45)
+    plt.title("Feature Importances")
+    plt.show()
+
+    # Confusion Matrix
+    cm = confusion_matrix(test_set['Y'], y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
+
+    # Learning curves to assess if more data would help
+    train_sizes, train_scores, test_scores = learning_curve(
+        rf_classifier, training_set['X'], training_set['Y'], cv=5, n_jobs=-1, 
+        train_sizes=np.linspace(0.1, 1.0, 10))
+
+    # Plot learning curves
+    plt.figure(figsize=(8, 6))
+    plt.plot(train_sizes, train_scores.mean(axis=1), label='Training score')
+    plt.plot(train_sizes, test_scores.mean(axis=1), label='Cross-validation score')
+    plt.xlabel('Training Examples')
+    plt.ylabel('Score')
+    plt.title('Learning Curves')
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.show()
