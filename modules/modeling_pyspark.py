@@ -259,7 +259,10 @@ def trainAndTestKmeansClassifiers(DATA_PATH: str, sampling: str):
     elbow_model.fit(reduced_features)
     elbow_model.show()
 
-    optimal_k = 4
+    # optimal_k = 4
+    # Get the optimal k
+    optimal_k = elbow_model.elbow_value_
+    print(f"The optimal number of clusters is: {optimal_k}")
 
     kmeans = KMeans(n_clusters=optimal_k, n_init="auto", algorithm="lloyd", random_state=42)
     clusterLabels = kmeans.fit_predict(reduced_features)
